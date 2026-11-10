@@ -1,0 +1,14 @@
+---
+- name: Destroy
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  tasks:
+    - name: Destroy molecule instance(s)
+      containers.podman.podman_container:
+        name: "{{ item.name }}"
+        state: absent
+        force_delete: true
+      loop: "{{ molecule_yml.platforms }}"
+      loop_control:
+        label: "{{ item.name }}"

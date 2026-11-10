@@ -1,0 +1,17 @@
+---
+dependency:
+  name: galaxy
+driver:
+  name: podman
+platforms:
+  - name: instance-ubuntu
+    image: "docker.io/geerlingguy/docker-ubuntu2204-ansible:latest"
+    pre_build_image: true
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      remote_tmp: /tmp
+      roles_path: ${MOLECULE_PROJECT_DIRECTORY}/..
+verifier:
+  name: ansible
