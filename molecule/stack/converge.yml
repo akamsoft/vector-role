@@ -1,0 +1,72 @@
+---
+- name: Configure ClickHouse
+  hosts: clickhouse
+  become: true
+  pre_tasks:
+    - name: Force APT to use IPv4 only (fixes IPv6 unreachable)
+      ansible.builtin.copy:
+        dest: /etc/apt/apt.conf.d/99force-ipv4
+        content: 'Acquire::ForceIPv4 "true";'
+        mode: '0644'
+
+    - name: Remove any custom ClickHouse systemd unit file
+      ansible.builtin.file:
+        path: /etc/systemd/system/clickhouse-server.service
+        state: absent
+
+    - name: Create systemd drop-in directory for ClickHouse
+      ansible.builtin.file:
+        path: /etc/systemd/system/clickhouse-server.service.d
+        state: directory
+        mode: '0755'
+
+    - name: Apply drop-in to disable sd_notify and signal conflicts
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/clickhouse-server.service.d/override.conf
+        content: |
+          [Service]
+          Type=simple
+          KillMode=process
+          Environment=CLICKHOUSE_WATCHDOG_ENABLE=0
+          TimeoutStartSec=infinity
+        mode: '0644'
+
+    - name: Reload systemd to apply all changes
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Create ClickHouse config.d and thread pool override
+      ansible.builtin.shell: |
+        mkdir -p /etc/clickhouse-server/config.d
+        cat > /etc/clickhouse-server/config.d/thread_pool.xml <<'XMLEOF'
+        <clickhouse>
+          <max_thread_pool_size>10000</max_thread_pool_size>
+          <background_schedule_pool_size>128</background_schedule_pool_size>
+        </clickhouse>
+        XMLEOF
+      args:
+        creates: /etc/clickhouse-server/config.d/thread_pool.xml
+      changed_when: false
+  vars:
+    clickhouse_version: "24.8.5.115"
+    clickhouse_repo: "https://packages.clickhouse.com/deb/lts/main/"
+    clickhouse_listen_host:
+      - "0.0.0.0"
+  roles:
+    - clickhouse
+
+- name: Configure Vector
+  hosts: vector
+  become: true
+  roles:
+    - vector-role
+
+- name: Configure LightHouse
+  hosts: lighthouse
+  become: true
+  vars:
+    lighthouse_nginx_port: 8080
+    clickhouse_host: "127.0.0.1"
+    clickhouse_port: 8123
+  roles:
+    - lighthouse-role

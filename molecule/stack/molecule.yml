@@ -1,0 +1,23 @@
+---
+dependency:
+  name: galaxy
+driver:
+  name: docker          # ← заменяем podman на docker
+platforms:
+  - name: instance-clickhouse
+    image: "geerlingguy/docker-ubuntu2204-ansible:latest"
+    pre_build_image: true
+  - name: instance-vector
+    image: "geerlingguy/docker-ubuntu2204-ansible:latest"
+    pre_build_image: true
+  - name: instance-lighthouse
+    image: "geerlingguy/docker-ubuntu2204-ansible:latest"
+    pre_build_image: true
+provisioner:
+  name: ansible
+  config_options:
+    defaults:
+      remote_tmp: /tmp
+      roles_path: "${MOLECULE_PROJECT_DIRECTORY}/..:/home/alex/.ansible/roles:/usr/share/ansible/roles"
+verifier:
+  name: ansible

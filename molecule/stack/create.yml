@@ -1,0 +1,59 @@
+---
+- name: Create
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  vars:
+    molecule_inventory:
+      all:
+        children: {}
+  tasks:
+    - name: Create molecule instances
+      community.docker.docker_container:
+        name: "{{ item.name }}"
+        image: "{{ item.image }}"
+        state: started
+        privileged: true
+        command: "/usr/sbin/init"
+        network_mode: host
+        volumes:
+          - /sys/fs/cgroup:/sys/fs/cgroup:rw
+        detach: true
+        tty: true
+      loop: "{{ molecule_yml.platforms }}"
+
+    - name: Build inventory groups
+      vars:
+        group_name: >-
+          {{ 'clickhouse' if item.name == 'instance-clickhouse'
+             else ('vector' if item.name == 'instance-vector'
+             else 'lighthouse') }}
+        partial: >-
+          {{
+            {
+              'all': {
+                'children': {
+                  group_name: {
+                    'hosts': {
+                      item.name: {
+                        'ansible_connection': 'community.docker.docker'
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }}
+      ansible.builtin.set_fact:
+        molecule_inventory: >-
+          {{ molecule_inventory | combine(partial, recursive=True) }}
+      loop: "{{ molecule_yml.platforms }}"
+
+    - name: Dump inventory
+      ansible.builtin.copy:
+        content: "{{ molecule_inventory | to_yaml }}"
+        dest: "{{ molecule_ephemeral_directory }}/inventory/molecule_inventory.yml"
+        mode: "0600"
+
+    - name: Refresh inventory
+      ansible.builtin.meta: refresh_inventory

@@ -1,0 +1,73 @@
+---
+- name: Verify ClickHouse
+  hosts: clickhouse
+  gather_facts: false
+  tasks:
+    - name: Check ClickHouse responds
+      ansible.builtin.uri:
+        url: "http://localhost:8123/?query=SELECT%20version()"
+        return_content: true
+      register: ch_version
+
+    - name: Assert ClickHouse version is returned
+      ansible.builtin.assert:
+        that:
+          - ch_version.content is search('24\\.')
+        fail_msg: "ClickHouse did not return expected version: {{ ch_version.content }}"
+
+- name: Verify Vector
+  hosts: vector
+  gather_facts: false
+  tasks:
+    - name: Check Vector version (full path)
+      ansible.builtin.command: "{{ vector_bin | default('/usr/local/bin/vector') }} --version"
+      register: vec_version
+      changed_when: false
+      failed_when: false
+
+    - name: Assert Vector is installed and executable
+      ansible.builtin.assert:
+        that:
+          - vec_version.rc == 0
+        fail_msg: "Vector is not installed or not executable. rc={{ vec_version.rc }}, stderr={{ vec_version.stderr }}, stdout={{ vec_version.stdout }}"
+
+    - name: Validate Vector configuration (full path)
+      ansible.builtin.command: "{{ vector_bin | default('/usr/local/bin/vector') }} validate {{ vector_config_dir | default('/etc/vector') }}/vector.yaml"
+      register: vec_validate
+      changed_when: false
+      failed_when: false
+
+    - name: Assert Vector configuration is valid
+      ansible.builtin.assert:
+        that:
+          - vec_validate.rc == 0
+        fail_msg: "Vector config is invalid: rc={{ vec_validate.rc }}, stderr={{ vec_validate.stderr }}"
+
+- name: Verify LightHouse + integration with ClickHouse
+  hosts: lighthouse
+  gather_facts: false
+  tasks:
+    - name: Check LightHouse main page
+      ansible.builtin.uri:
+        url: "http://localhost:8080/"
+        status_code: 200
+        return_content: true
+      register: lh_page
+
+    - name: Assert LightHouse is served
+      ansible.builtin.assert:
+        that:
+          - "'LightHouse' in lh_page.content"
+        fail_msg: "LightHouse page does not contain expected content"
+
+    - name: Check proxy from LightHouse to ClickHouse
+      ansible.builtin.uri:
+        url: "http://localhost:8080/clickhouse/?query=SELECT%20version()"
+        return_content: true
+      register: proxy_result
+
+    - name: Assert integration works (ClickHouse version via LightHouse proxy)
+      ansible.builtin.assert:
+        that:
+          - proxy_result.content is search('24\\.')
+        fail_msg: "Proxy from LightHouse to ClickHouse failed: {{ proxy_result.content }}"

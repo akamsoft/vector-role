@@ -1,0 +1,19 @@
+---
+- name: Prepare
+  hosts: all
+  become: true
+  gather_facts: true
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+      when: ansible_os_family == 'Debian'
+
+    - name: Ensure GPG key dependencies are installed (Debian/Ubuntu)
+      ansible.builtin.package:
+        name:
+          - gnupg
+          - dirmngr
+        state: present
+      when: ansible_os_family == 'Debian'
