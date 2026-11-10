@@ -1,4 +1,10 @@
 ---
+- name: Install required packages
+  ansible.builtin.package:
+    name: "{{ vector_packages }}"
+    state: present
+  tags: vector_install
+
 - name: Ensure install directories exist
   ansible.builtin.file:
     path: "{{ item }}"
@@ -15,13 +21,13 @@
 - name: Download Vector archive
   ansible.builtin.get_url:
     url: "{{ vector_download_url }}"
-    dest: "/tmp/{{ vector_archive }}"
+    dest: "{{ vector_install_dir }}/{{ vector_archive }}"
     mode: '0644'
   tags: vector_install
 
 - name: Unarchive Vector
   ansible.builtin.unarchive:
-    src: "/tmp/{{ vector_archive }}"
+    src: "{{ vector_install_dir }}/{{ vector_archive }}"
     dest: "{{ vector_install_dir }}"
     remote_src: true
     creates: "{{ vector_bin }}"

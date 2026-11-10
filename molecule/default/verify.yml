@@ -1,0 +1,51 @@
+---
+- name: Verify
+  hosts: all
+  gather_facts: false
+  tasks:
+    - name: Check that Vector binary is installed and executable
+      ansible.builtin.stat:
+        path: "{{ vector_bin | default('/usr/local/bin/vector') }}"
+      register: vector_bin_stat
+
+    - name: Assert Vector binary is present and executable
+      ansible.builtin.assert:
+        that:
+          - vector_bin_stat.stat.exists
+          - vector_bin_stat.stat.executable
+        fail_msg: "Vector binary is missing or not executable at {{ vector_bin | default('/usr/local/bin/vector') }}"
+
+    - name: Check that Vector configuration file exists
+      ansible.builtin.stat:
+        path: "{{ vector_config_dir | default('/etc/vector') }}/vector.yaml"
+      register: vector_config_stat
+
+    - name: Assert Vector configuration file is present
+      ansible.builtin.assert:
+        that:
+          - vector_config_stat.stat.exists
+        fail_msg: "Vector configuration file is missing!"
+
+    - name: Check Vector service status
+      ansible.builtin.command: systemctl is-active vector
+      register: vector_service_status
+      changed_when: false
+      failed_when: false
+
+    - name: Assert Vector service is running
+      ansible.builtin.assert:
+        that:
+          - vector_service_status.stdout == "active"
+        fail_msg: "Vector service is not running. Status: {{ vector_service_status.stdout }}"
+
+    - name: Validate Vector configuration
+      ansible.builtin.command: "vector validate {{ vector_config_dir | default('/etc/vector') }}/vector.yaml"
+      register: vector_validate_result
+      changed_when: false
+      failed_when: false
+
+    - name: Assert Vector configuration is valid
+      ansible.builtin.assert:
+        that:
+          - vector_validate_result.rc == 0
+        fail_msg: "Vector configuration is invalid: {{ vector_validate_result.stderr }}"

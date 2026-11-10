@@ -1,5 +1,6 @@
----
 galaxy_info:
+  role_name: vector_role
+  namespace: akamsoft
   author: Alex
   description: Install and configure Vector
   company: akamsoft
@@ -8,7 +9,11 @@ galaxy_info:
   platforms:
     - name: EL
       versions:
+        - "8"
         - "9"
+    - name: Ubuntu
+      versions:
+        - all
   galaxy_tags:
     - vector
     - logging
